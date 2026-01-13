@@ -30,4 +30,19 @@ public class UserController {
         UserResponse response = userService.findByLicenseNumber(licenseNumber);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping
+    public ResponseEntity<java.util.List<UserResponse>> getUsersByRole(@RequestParam(required = false) String role) {
+        java.util.List<UserResponse> users = userService.findByRole(role);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getCurrentUser(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails
+    ) {
+        String email = userDetails.getUsername();
+        UserResponse user = userService.findByEmail(email);
+        return ResponseEntity.ok(user);
+    }
 }

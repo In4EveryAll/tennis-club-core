@@ -16,8 +16,10 @@ import org.mapstruct.ReportingPolicy;
 public interface UserMapper {
 
     @Mapping(target = "birthDate", source = "birthDate", qualifiedByName = "stringToLocalDate")
-    @Mapping(target = "role", source = "role", qualifiedByName = "stringToRole")
     @Mapping(target = "phone", source = "phone")
+    @Mapping(target = "role", ignore = true) // Se asigna automáticamente en el servicio
+    @Mapping(target = "licenseNumber", ignore = true) // Se genera automáticamente en el servicio
+    @Mapping(target = "passwordHash", ignore = true) // Se hashea en el servicio
     UserEntity toEntity(SignUpRequest req);
 
     UserResponse toResponse(UserEntity user);

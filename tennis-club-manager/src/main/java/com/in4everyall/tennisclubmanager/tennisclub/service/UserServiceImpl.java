@@ -4,11 +4,12 @@ import com.in4everyall.tennisclubmanager.tennisclub.dto.LoginRequest;
 import com.in4everyall.tennisclubmanager.tennisclub.dto.SignUpRequest;
 import com.in4everyall.tennisclubmanager.tennisclub.dto.UserResponse;
 import com.in4everyall.tennisclubmanager.tennisclub.entity.UserEntity;
-import com.in4everyall.tennisclubmanager.tennisclub.mapper.PlayerMapper;
+import com.in4everyall.tennisclubmanager.tennisclub.enums.Role;
 import com.in4everyall.tennisclubmanager.tennisclub.mapper.UserMapper;
-import com.in4everyall.tennisclubmanager.tennisclub.repository.PlayerRepository;
 import com.in4everyall.tennisclubmanager.tennisclub.repository.UserRepository;
 import com.in4everyall.tennisclubmanager.tennisclub.validator.SignUpValidator;
+
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -24,13 +25,7 @@ public class UserServiceImpl implements UserService{
     private UserRepository userRepository;
 
     @Autowired
-    private PlayerRepository playerRepository;
-
-    @Autowired
     private UserMapper userMapper;
-
-    @Autowired
-    private PlayerMapper playerMapper;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -44,17 +39,33 @@ public class UserServiceImpl implements UserService{
     @Override
     public UserResponse signUp(SignUpRequest req) {
         signUpValidator.validateSignUpForm(req);
-        if (userRepository.existsByLicenseNumber(req.licenseNumber())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "License already exists");
-        }
         if (userRepository.existsByEmail(req.email())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
         UserEntity userEntity = userMapper.toEntity(req);
-        userEntity.setPasswordHash(passwordEncoder.encode(req.passwordHash()));
-        userRepository.save(userEntity);
-        playerRepository.save(playerMapper.toEntity(req));
-        return userMapper.toResponse(userEntity);
+        // Hashear la contraseña en backend
+        userEntity.setPasswordHash(passwordEncoder.encode(req.password()));
+        // Asignar role ALUMNO automáticamente (ignorar cualquier role recibido)
+        userEntity.setRole(Role.ALUMNO);
+        // Generar license_number único si no viene o está vacío
+        if (req.licenseNumber() == null || req.licenseNumber().isBlank()) {
+            userEntity.setLicenseNumber(generateLicenseNumber());
+        } else {
+            // Validar que el licenseNumber no exista
+            if (userRepository.existsByLicenseNumber(req.licenseNumber())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "License number already exists");
+            }
+            userEntity.setLicenseNumber(req.licenseNumber());
+        }
+        UserEntity savedUser = userRepository.save(userEntity);
+        // Generar token para el nuevo usuario
+        String token = jwtService.generateToken(savedUser.getEmail());
+        return userMapper.toResponse(savedUser, token);
+    }
+    
+    private String generateLicenseNumber() {
+        // Generar un número de licencia único basado en timestamp
+        return "LIC-" + System.currentTimeMillis();
     }
 
     @Override
@@ -74,5 +85,25 @@ public class UserServiceImpl implements UserService{
         UserEntity user = userRepository.findByLicenseNumber(licenseNumber)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return userMapper.toResponse(user);
+    }
+
+    @Override
+    public UserResponse findByEmail(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        return userMapper.toResponse(user);
+    }
+
+    @Override
+    public List<UserResponse> findByRole(String role) {
+        if (role == null || role.isBlank()) {
+            return userRepository.findAll().stream()
+                    .map(userMapper::toResponse)
+                    .toList();
+        }
+        Role roleEnum = Role.valueOf(role.toUpperCase());
+        return userRepository.findByRole(roleEnum).stream()
+                .map(userMapper::toResponse)
+                .toList();
     }
 }

@@ -334,8 +334,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
      */
     private void createPaymentForSubscription(PlayerSubscriptionEntity subscription, SubscriptionRequest request) {
         PaymentEntity payment = PaymentEntity.builder()
-                .player(subscription.getPlayer())
-                .subscription(subscription)
                 .status(PaymentStatus.PENDING)
                 .paymentDate(java.time.LocalDate.now())
                 .build();
@@ -343,36 +341,19 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         // Calcular monto y tipo de pago según el tipo de suscripción
         switch (request.subscriptionType()) {
             case CLASS_PACKAGE:
-                payment.setPaymentType(PaymentType.CLASS_PACKAGE);
                 payment.setAmount(new BigDecimal("280.00"));
-                payment.setClassesRemaining(10);
                 payment.setNotes("Bono de 10 clases - Generado automáticamente al crear suscripción");
                 break;
 
             case QUARTERLY:
-                payment.setPaymentType(PaymentType.QUARTERLY);
+                // NOTA: En el nuevo sistema, los pagos se crean desde contratos
+                // Estos campos legacy ya no existen en PaymentEntity
                 if (request.daysPerWeek() != null) {
                     BigDecimal amount = new BigDecimal("140").multiply(new BigDecimal(request.daysPerWeek()));
                     payment.setAmount(amount);
-                    payment.setDaysPerWeek(request.daysPerWeek());
                 }
                 if (request.currentQuarterStart() != null) {
-                    payment.setQuarterStartDate(request.currentQuarterStart());
-                }
-                if (request.currentQuarterEnd() != null) {
-                    payment.setQuarterEndDate(request.currentQuarterEnd());
-                }
-                // Calcular año y trimestre desde las fechas
-                if (request.currentQuarterStart() != null) {
-                    payment.setYear(request.currentQuarterStart().getYear());
-                    int month = request.currentQuarterStart().getMonthValue();
-                    if (month >= 1 && month <= 3) {
-                        payment.setQuarterNumber(1);
-                    } else if (month >= 4 && month <= 6) {
-                        payment.setQuarterNumber(2);
-                    } else if (month >= 9 && month <= 12) {
-                        payment.setQuarterNumber(3);
-                    }
+                    payment.setDueDate(request.currentQuarterStart());
                 }
                 payment.setNotes("Trimestre - Generado automáticamente al crear suscripción");
                 break;
@@ -507,15 +488,13 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         PaymentEntity payment;
         if (pendingPayments.isEmpty()) {
             // Crear nuevo pago si no existe
+            // NOTA: En el nuevo sistema, los pagos se crean desde contratos
+            // Estos campos legacy ya no existen
             payment = PaymentEntity.builder()
-                    .player(subscription.getPlayer())
-                    .subscription(subscription)
                     .status(PaymentStatus.PENDING)
                     .paymentDate(LocalDate.now())
-                    .paymentType(PaymentType.QUARTERLY)
-                    .quarterStartDate(subscription.getCurrentQuarterStart())
-                    .quarterEndDate(subscription.getCurrentQuarterEnd())
-                    .daysPerWeek(subscription.getDaysPerWeek())
+                    .currency("EUR")
+                    .amount(BigDecimal.ZERO)
                     .build();
         } else {
             // Usar el primer pago pendiente
@@ -556,7 +535,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
 
         payment.setNotes(conceptBuilder.toString());
-        payment.setDaysPerWeek(subscription.getDaysPerWeek());
+        // NOTA: setDaysPerWeek ya no existe en PaymentEntity
 
         paymentRepository.save(payment);
     }

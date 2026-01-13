@@ -1,9 +1,14 @@
 package com.in4everyall.tennisclubmanager.tennisclub.controller;
 
 import com.in4everyall.tennisclubmanager.tennisclub.dto.*;
+import com.in4everyall.tennisclubmanager.tennisclub.dto.AdminMatchesSummary;
+import com.in4everyall.tennisclubmanager.tennisclub.entity.UserEntity;
+import com.in4everyall.tennisclubmanager.tennisclub.enums.Role;
+import com.in4everyall.tennisclubmanager.tennisclub.repository.UserRepository;
 import com.in4everyall.tennisclubmanager.tennisclub.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +31,11 @@ public class AdminController {
     private final HolidayService holidayService;
     private final ClassConsumptionService classConsumptionService;
     private final BulkSubscriptionService bulkSubscriptionService;
+    private final CalendarEventService calendarEventService;
+    private final ContractService contractService;
+    private final AdminDashboardService adminDashboardService;
+    private final ClubPeriodService clubPeriodService;
+    private final UserRepository userRepository;
 
     @GetMapping("/phases")
     public List<String> getAllPhases() {
@@ -420,6 +430,59 @@ public class AdminController {
     public ResponseEntity<Void> deleteClassConsumption(@PathVariable UUID id) {
         classConsumptionService.deleteConsumption(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/events/{eventId}")
+    public ResponseEntity<com.in4everyall.tennisclubmanager.tennisclub.dto.CalendarEventResponse> getEventDetail(
+            @PathVariable UUID eventId,
+            Authentication authentication
+    ) {
+        // Obtener el rol del usuario autenticado (siempre ADMIN en este endpoint, pero por seguridad)
+        String userEmail = authentication.getName();
+        UserEntity user = userRepository.findByEmail(userEmail).orElse(null);
+        Role userRole = (user != null) ? user.getRole() : Role.ADMIN;
+        
+        return ResponseEntity.ok(calendarEventService.getEventById(eventId, userRole));
+    }
+
+    // ========== DASHBOARD ENDPOINTS ==========
+    
+    @GetMapping("/dashboard/today")
+    public ResponseEntity<DashboardTodayResponse> getTodayDashboard() {
+        return ResponseEntity.ok(adminDashboardService.getTodayDashboard());
+    }
+
+    // ========== CONTRACT ENDPOINTS ==========
+    
+    @GetMapping("/contracts/active")
+    public ResponseEntity<List<ContractResponse>> getActiveContracts() {
+        return ResponseEntity.ok(contractService.getActiveContracts());
+    }
+
+    // ========== CALENDAR ENDPOINTS ==========
+    
+    @GetMapping("/calendar/month")
+    public ResponseEntity<CalendarMonthResponse> getCalendarMonth(
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            Authentication authentication
+    ) {
+        // Obtener el rol del usuario autenticado (siempre ADMIN en este endpoint, pero por seguridad)
+        String userEmail = authentication.getName();
+        UserEntity user = userRepository.findByEmail(userEmail).orElse(null);
+        Role userRole = (user != null) ? user.getRole() : Role.ADMIN;
+        
+        String monthStr = String.format("%d-%02d", year, month);
+        List<CalendarEventResponse> events = calendarEventService.getEventsByMonth(monthStr, userRole);
+        List<ClubPeriodResponse> periods = clubPeriodService.getActivePeriods();
+        
+        CalendarMonthResponse response = new CalendarMonthResponse(
+                year,
+                month,
+                events,
+                periods
+        );
+        return ResponseEntity.ok(response);
     }
 
 }

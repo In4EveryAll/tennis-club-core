@@ -72,10 +72,8 @@ public class PlayerSubscriptionEntity extends AuditableEntity {
     @Column(name = "auto_renew")
     private Boolean autoRenew;
     
-    // Relación con pagos asociados a esta suscripción
-    @OneToMany(mappedBy = "subscription", fetch = FetchType.LAZY)
-    @Builder.Default
-    private Set<com.in4everyall.tennisclubmanager.tennisclub.entity.PaymentEntity> payments = new HashSet<>();
+    // NOTA: La relación con PaymentEntity ya no existe porque PaymentEntity ya no tiene el campo 'subscription'
+    // Los pagos ahora están asociados a contratos, no a suscripciones
     
     // Relación con inscripciones a tipos de clases
     @OneToMany(mappedBy = "subscription", fetch = FetchType.LAZY)

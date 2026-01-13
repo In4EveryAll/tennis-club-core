@@ -31,19 +31,9 @@ public class PricingServiceImpl implements PricingService {
         BigDecimal amount = calculateQuarterlyPrice(numberOfClasses);
 
         PaymentEntity payment = PaymentEntity.builder()
-                .player(subscription.getPlayer())
-                .paymentType(PaymentType.QUARTERLY)
                 .amount(amount)
                 .paymentDate(LocalDate.now())
                 .status(PaymentStatus.PENDING)
-                .daysPerWeek(numberOfClasses)
-                .quarterStartDate(subscription.getCurrentQuarterStart())
-                .quarterEndDate(subscription.getCurrentQuarterEnd())
-                .subscription(subscription)
-                .year(subscription.getCurrentQuarterStart() != null ? 
-                        subscription.getCurrentQuarterStart().getYear() : null)
-                .quarterNumber(subscription.getCurrentQuarterStart() != null ? 
-                        getQuarterNumber(subscription.getCurrentQuarterStart()) : null)
                 .notes("Pago trimestral - Generado automáticamente al crear suscripción")
                 .build();
 

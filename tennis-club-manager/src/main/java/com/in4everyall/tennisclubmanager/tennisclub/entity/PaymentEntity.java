@@ -1,8 +1,8 @@
 package com.in4everyall.tennisclubmanager.tennisclub.entity;
 
 import com.in4everyall.tennisclubmanager.tennisclub.entity.base.AuditableEntity;
+import com.in4everyall.tennisclubmanager.tennisclub.enums.PaymentMethod;
 import com.in4everyall.tennisclubmanager.tennisclub.enums.PaymentStatus;
-import com.in4everyall.tennisclubmanager.tennisclub.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -19,9 +19,11 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "payments", indexes = {
-    @Index(name = "ix_payments_license", columnList = "license_number"),
     @Index(name = "ix_payments_date", columnList = "payment_date"),
-    @Index(name = "ix_payments_status", columnList = "status")
+    @Index(name = "ix_payments_status", columnList = "status"),
+    @Index(name = "ix_payments_contract", columnList = "contract_id"),
+    @Index(name = "ix_payments_user", columnList = "user_email"),
+    @Index(name = "ix_payments_number", columnList = "payment_number")
 })
 public class PaymentEntity extends AuditableEntity {
     
@@ -33,21 +35,49 @@ public class PaymentEntity extends AuditableEntity {
     public void prePersist() {
         if (id == null) id = UUID.randomUUID();
         if (status == null) status = PaymentStatus.PENDING;
+        if (paymentNumber == null) {
+            // Generar paymentNumber usando fecha y parte del UUID
+            String dateStr = LocalDate.now().toString().replace("-", "");
+            String uuidStr = id.toString().replace("-", "").substring(0, 8).toUpperCase();
+            paymentNumber = "PAY-" + dateStr + "-" + uuidStr;
+        }
     }
     
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // Campos nuevos para el sistema de contratos
+    @Column(name = "payment_number", length = 50, unique = true)
+    private String paymentNumber;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
-            name = "license_number",
-            referencedColumnName = "license_number",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_payment_player")
+            name = "contract_id",
+            referencedColumnName = "id",
+            foreignKey = @ForeignKey(name = "fk_payment_contract")
     )
-    private PlayerEntity player;
+    private ContractEntity contract;
+    
+    @Column(name = "user_email", length = 150)
+    private String userEmail;
+    
+    @Column(name = "due_date")
+    private LocalDate dueDate;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_type", nullable = false, length = 20)
+    @Column(name = "payment_method", length = 20)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private PaymentType paymentType;
+    private PaymentMethod paymentMethod;
+    
+    @Column(name = "currency", length = 3)
+    @Builder.Default
+    private String currency = "EUR";
+    
+    @Column(name = "reference_number", length = 100)
+    private String referenceNumber;
+    
+    @Column(name = "invoice_number", length = 50)
+    private String invoiceNumber;
+    
+    @Column(name = "invoice_date")
+    private LocalDate invoiceDate;
     
     @Column(name = "amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
@@ -58,44 +88,8 @@ public class PaymentEntity extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private PaymentStatus status;
-    
-    // Relación futura con calendario/clases
-    @Column(name = "class_session_id", columnDefinition = "UUID")
-    private UUID classSessionId;
-    
-    // Relación con suscripción (opcional, no todos los pagos son de suscripciones)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "subscription_id",
-            referencedColumnName = "id",
-            foreignKey = @ForeignKey(name = "fk_payment_subscription")
-    )
-    private PlayerSubscriptionEntity subscription;
-    
-    // Para clases individuales
-    @Column(name = "class_date")
-    private LocalDate classDate;
-    
-    // Para bonos
-    @Column(name = "classes_remaining")
-    private Integer classesRemaining;
-    
-    // Para trimestres
-    @Column(name = "quarter_start_date")
-    private LocalDate quarterStartDate;
-    
-    @Column(name = "quarter_end_date")
-    private LocalDate quarterEndDate;
-    
-    @Column(name = "days_per_week")
-    private Integer daysPerWeek;
-    
-    @Column(name = "year")
-    private Integer year;
-    
-    @Column(name = "quarter_number")
-    private Integer quarterNumber;
+    @Builder.Default
+    private PaymentStatus status = PaymentStatus.PENDING;
     
     @Column(name = "notes", length = 500)
     private String notes;
