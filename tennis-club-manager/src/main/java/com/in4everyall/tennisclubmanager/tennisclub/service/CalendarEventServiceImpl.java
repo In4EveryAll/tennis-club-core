@@ -161,6 +161,7 @@ public class CalendarEventServiceImpl implements CalendarEventService {
 
             // Obtener nombre del monitor (con fetch join ya está cargado)
             String monitorName = null;
+            String monitorEmail = null;
             if (event.getMonitor() != null) {
                 String firstName = event.getMonitor().getFirstName() != null ? event.getMonitor().getFirstName() : "";
                 String lastName = event.getMonitor().getLastName() != null ? event.getMonitor().getLastName() : "";
@@ -168,6 +169,7 @@ public class CalendarEventServiceImpl implements CalendarEventService {
                 if (monitorName.isEmpty()) {
                     monitorName = null;
                 }
+                monitorEmail = event.getMonitor().getEmail();
             }
 
             // Contar asistencias confirmadas (PRESENT)
@@ -214,6 +216,8 @@ public class CalendarEventServiceImpl implements CalendarEventService {
                     event.getEndDatetime(),
                     serviceName,
                     monitorName,
+                    monitorEmail,
+                    monitorEmail, // alias snake_case para compatibilidad con el frontend
                     confirmedCount != null ? confirmedCount : 0,
                     capacity,
                     false, // userHasConfirmed se calcula en el frontend o con el usuario autenticado

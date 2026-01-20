@@ -12,6 +12,8 @@ public record CalendarEventResponse(
         Instant endDateTime,
         String serviceName,
         String monitorName,
+        String monitorEmail,
+        String monitor_email,
         Integer confirmedCount,
         Integer capacity,
         Boolean userHasConfirmed,
