@@ -15,7 +15,7 @@ public interface AttendanceRepository extends JpaRepository<AttendanceEntity, UU
     List<AttendanceEntity> findByContractId(UUID contractId);
     
     @Query("SELECT COUNT(a) FROM AttendanceEntity a WHERE a.event.id = :eventId AND a.attendanceStatus = :status")
-    Integer countByEventIdAndStatus(@Param("eventId") UUID eventId, @Param("status") String status);
+    Integer countByEventIdAndStatus(@Param("eventId") UUID eventId, @Param("status") AttendanceEntity.AttendanceStatus status);
     
     Optional<AttendanceEntity> findByEventIdAndUserEmail(UUID eventId, String userEmail);
 }

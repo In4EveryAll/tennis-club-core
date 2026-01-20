@@ -32,54 +32,78 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     @Transactional
     public AttendanceResponse createOrUpdateAttendance(AttendanceRequest request) {
+        if (request == null
+                || request.eventId() == null
+                || request.contractId() == null
+                || request.userId() == null || request.userId().isBlank()
+                || request.status() == null || request.status().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request body");
+        }
+
+        AttendanceEntity.AttendanceStatus newStatus = parseStatus(request.status());
+        boolean isPresentOrLate = newStatus == AttendanceEntity.AttendanceStatus.PRESENT
+                || newStatus == AttendanceEntity.AttendanceStatus.LATE;
+
         CalendarEventEntity event = calendarEventRepository.findById(request.eventId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
 
         UserEntity user = userRepository.findByEmail(request.userId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         ContractEntity contract = contractRepository.findById(request.contractId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contrato no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contract not found"));
 
-        // Buscar asistencia existente
+        // Buscar asistencia existente (UPSERT por eventId + user_email)
         AttendanceEntity attendance = attendanceRepository.findByEventIdAndUserEmail(request.eventId(), request.userId())
                 .orElse(null);
 
+        AttendanceEntity.AttendanceStatus previousStatus = null;
         if (attendance == null) {
-            // Crear nueva asistencia
-            AttendanceEntity.AttendanceStatus status = parseStatus(request.status());
+            // INSERT
             attendance = AttendanceEntity.builder()
                     .event(event)
                     .user(user)
                     .contract(contract)
-                    .attendanceStatus(status)
-                    .arrivalTime(status == AttendanceEntity.AttendanceStatus.PRESENT ? Instant.now() : null)
+                    .attendanceStatus(newStatus)
+                    .arrivalTime(isPresentOrLate ? Instant.now() : null)
                     .build();
         } else {
-            // Actualizar asistencia existente
-            AttendanceEntity.AttendanceStatus status = parseStatus(request.status());
-            attendance.setAttendanceStatus(status);
-            if (status == AttendanceEntity.AttendanceStatus.PRESENT && attendance.getArrivalTime() == null) {
+            // UPDATE
+            previousStatus = attendance.getAttendanceStatus();
+            attendance.setContract(contract); // actualizar si cambió
+            attendance.setAttendanceStatus(newStatus);
+            // arrival_time: set NOW() solo si pasa a PRESENT/LATE y estaba NULL; si no, mantener
+            if (isPresentOrLate && attendance.getArrivalTime() == null) {
                 attendance.setArrivalTime(Instant.now());
             }
         }
 
         AttendanceEntity saved = attendanceRepository.save(attendance);
 
-        // Si es PRESENT y el contrato es un bono, actualizar classesUsed
-        if (saved.getAttendanceStatus() == AttendanceEntity.AttendanceStatus.PRESENT 
-                && contract.getTotalClasses() != null) {
-            updateContractClassesUsed(contract);
+        // BONOS: incrementar classesUsed solo UNA vez por evento (cuando transiciona a PRESENT/LATE)
+        if (contract.getTotalClasses() != null && isPresentOrLate) {
+            boolean wasPresentOrLate = previousStatus == AttendanceEntity.AttendanceStatus.PRESENT
+                    || previousStatus == AttendanceEntity.AttendanceStatus.LATE;
+            boolean shouldIncrement = previousStatus == null || !wasPresentOrLate;
+            if (shouldIncrement) {
+                incrementContractClassesUsedIfAvailable(contract);
+            }
         }
 
         return toResponse(saved);
     }
 
-    private void updateContractClassesUsed(ContractEntity contract) {
-        if (contract.getClassesUsed() == null) {
-            contract.setClassesUsed(0);
-        }
-        contract.setClassesUsed(contract.getClassesUsed() + 1);
+    private void incrementContractClassesUsedIfAvailable(ContractEntity contract) {
+        Integer total = contract.getTotalClasses();
+        if (total == null) return; // no es bono
+
+        Integer used = contract.getClassesUsed();
+        if (used == null) used = 0;
+
+        int remaining = total - used;
+        if (remaining <= 0) return;
+
+        contract.setClassesUsed(used + 1);
         // classesRemaining se calcula en el DTO, no se almacena en la BD
         contractRepository.save(contract);
     }
@@ -88,7 +112,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         try {
             return AttendanceEntity.AttendanceStatus.valueOf(status.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado de asistencia inválido: " + status);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attendance status: " + status);
         }
     }
 
