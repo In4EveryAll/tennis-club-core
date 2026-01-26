@@ -24,7 +24,8 @@ public class CalendarEventEntity extends AuditableEntity {
 
     @PrePersist
     public void prePersist() {
-        if (id == null) id = UUID.randomUUID();
+        if (id == null)
+            id = UUID.randomUUID();
     }
 
     @Enumerated(EnumType.STRING)
@@ -87,6 +88,10 @@ public class CalendarEventEntity extends AuditableEntity {
     @Column(name = "notes", length = 1000)
     private String notes;
 
+    @Column(name = "reminder_sent", nullable = false)
+    @Builder.Default
+    private boolean reminderSent = false;
+
     public enum EventType {
         CLASS, RESERVATION, TOURNAMENT, LEAGUE, HOLIDAY, CLOSURE, SPECIAL_EVENT
     }
@@ -95,5 +100,3 @@ public class CalendarEventEntity extends AuditableEntity {
         SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, POSTPONED
     }
 }
-
-

@@ -40,4 +40,37 @@ public class EmailService {
             e.printStackTrace();
         }
     }
+
+    public void sendReservationReminder(String to, String userName, String courtName, java.time.Instant startDatetime) {
+        System.out.println("Enviando recordatorio de reserva a: " + to);
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(from);
+        message.setTo(to);
+        message.setSubject("Recordatorio de Reserva - Tennis Club Manager");
+
+        // Formatear fecha y hora
+        java.time.LocalDateTime localDateTime = java.time.LocalDateTime.ofInstant(startDatetime,
+                java.time.ZoneId.of("Europe/Madrid"));
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                .ofPattern("dd/MM/yyyy 'a las' HH:mm");
+        String formattedDate = localDateTime.format(formatter);
+
+        message.setText(
+                "Hola " + userName + ",\n\n" +
+                        "Te recordamos que tienes una reserva de pista mañana.\n\n" +
+                        "Detalles de la reserva:\n" +
+                        "- Pista: " + courtName + "\n" +
+                        "- Fecha y Hora: " + formattedDate + "\n\n" +
+                        "¡Te esperamos en la pista!\n\n" +
+                        "Un saludo,\n" +
+                        "Club de Tenis Río Tormes");
+
+        try {
+            mailSender.send(message);
+            System.out.println("Recordatorio enviado correctamente a: " + to);
+        } catch (Exception e) {
+            System.err.println("ERROR AL ENVIAR RECORDATORIO: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }
