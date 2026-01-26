@@ -27,15 +27,14 @@ public class PasswordRecoveryService {
     @Value("${app.password-reset.token-validity-minutes:60}")
     private long tokenValidityMinutes;
 
-    @Value("${app.password-reset.frontend-url:https://tennisclubmanager.com/reset-password}")
+    @Value("${app.password-reset.frontend-url:http://localhost:8080/reset-password.html}")
     private String frontendResetUrl;
 
     public PasswordRecoveryService(
             UserRepository userRepository,
             PasswordResetTokenRepository tokenRepository,
             PasswordEncoder passwordEncoder,
-            EmailService emailService
-    ) {
+            EmailService emailService) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -92,4 +91,3 @@ public class PasswordRecoveryService {
         tokenRepository.save(token);
     }
 }
-
